@@ -1,4 +1,40 @@
 cmdapp
 ======
 
-A command line application that host a set of commands as in the go tool or git.
+Package cmdapp implements a command line application that host a set of
+commands as in the go tool or git.
+
+This work is derived from the [go tool](http://golang.org/cmd/go/) source
+code.
+
+
+Quick usage
+-----------
+
+    go get github.com/js-arias/cmdapp
+
+In the program initialization the commands, the lists of commands
+(subjects) and guides, as well as the commands (and their flags) should
+be setup.
+
+If nothing else is required (there are no special cases to check before
+the formal run of the application), the main funcion can be reduced to:
+
+	a = cmdapp.App{
+		// initialization
+	}
+	func main() {
+		a.Run()
+	}
+
+And the specified command will be run.
+
+Authorship and license
+----------------------
+
+Copyright (c) 2013, J. Salvador Arias <jsalarias@csnat.unt.edu.ar>
+All rights reserved.
+Distributed under BSD-style license that can be found in the LICENSE file.
+
+This work is derived from the [go tool](http://golang.org/cmd/go/) source
+code. Copyright 2011 The Go Authors.  All rights reserved.
