@@ -30,6 +30,7 @@ package cmdapp
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -163,15 +164,19 @@ func help(a *App, args []string) {
 		return
 	}
 	if arg == "documentation" {
-		fmt.Fprintf(os.Stdout, "%s", a.help())
-		for _, s := range a.Subject {
-			for _, c := range s.Commands {
-				fmt.Fprintf(os.Stdout, "\n%s", c.help())
-			}
+		documentationHelp(os.Stdout, a)
+		return
+	}
+	if arg == "doc.go" {
+		f, err := os.Create("doc.go")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", helpCmd.ErrStr(err))
+			os.Exit(2)
 		}
-		for _, g := range a.Guides {
-			fmt.Fprintf(os.Stdout, "\n%s", g.help())
-		}
+		defer f.Close()
+		fmt.Fprintf(f, "%s", goHead)
+		documentationHelp(f, a)
+		fmt.Fprintf(f, "%s", goFoot)
 		return
 	}
 	for _, s := range a.Subject {
@@ -191,3 +196,25 @@ func help(a *App, args []string) {
 	fmt.Fprintf(os.Stderr, "%s\n", helpCmd.ErrStr("unknown argument"))
 	os.Exit(2)
 }
+
+func documentationHelp(w io.Writer, a *App) {
+	fmt.Fprintf(w, "%s", a.help())
+	for _, s := range a.Subject {
+		for _, c := range s.Commands {
+			fmt.Fprintf(w, "\n%s", c.help())
+		}
+	}
+	for _, g := range a.Guides {
+		fmt.Fprintf(w, "\n%s", g.help())
+	}
+}
+
+var goHead = `// Authomatically generated doc.go file for use with godoc.
+
+/*
+`
+
+var goFoot = `
+*/
+package main
+`
