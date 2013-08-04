@@ -171,8 +171,8 @@ func help(a *App, args []string) {
 		}
 		for _, g := range a.Guides {
 			fmt.Fprintf(os.Stdout, "\n%s", g.help())
-			return
 		}
+		return
 	}
 	for _, s := range a.Subject {
 		for _, c := range s.Commands {
