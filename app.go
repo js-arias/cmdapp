@@ -93,7 +93,7 @@ func (a *App) RunArgs(args []string) {
 	for _, s := range a.Subject {
 		for _, c := range s.Commands {
 			if c.Name == args[0] {
-				c.Flag.Usage = func() { c.usage() }
+				c.Flag.Usage = func() { c.Usage() }
 				c.Flag.Parse(args[1:])
 				c.Run(c, c.Flag.Args())
 				return

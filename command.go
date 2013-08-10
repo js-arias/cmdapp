@@ -46,7 +46,7 @@ func (c *Command) ErrStr(err interface{}) string {
 }
 
 // prints command usage
-func (c *Command) usage() {
+func (c *Command) Usage() {
 	fmt.Fprintf(os.Stderr, "%s-%s - %s\n", c.Host, c.Name, c.Short)
 	fmt.Fprintf(os.Stderr, "Usage: %s %s %s\n", c.Host, c.Name, c.Synopsis)
 	fmt.Fprintf(os.Stderr, "Type '%s help %s' for more information\n", c.Host, c.Name)
