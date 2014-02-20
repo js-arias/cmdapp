@@ -27,18 +27,7 @@ type Guide struct {
 
 // returns guide description
 func (g *Guide) help() string {
-	hlp := fmt.Sprintf("%s - %s\n", g.Name, g.Short)
+	hlp := fmt.Sprintf("%s - %s\n", capitalize(g.Name), g.Short)
 	hlp += fmt.Sprintf("\n%s\n", strings.TrimSpace(g.Long))
 	return hlp
-}
-
-// Subject is a list of commands grouped in a particular subject. The
-// order of the commands, is used by help.
-type Subject struct {
-	// Name is the guide's name.
-	Name string
-
-	// List of commands in the the order in which they are printed by
-	// help command.
-	Commands []*Command
 }

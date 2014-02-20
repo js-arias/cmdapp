@@ -33,6 +33,8 @@ import (
 	"io"
 	"os"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 //App is a command line application.
@@ -52,8 +54,9 @@ type App struct {
 	// Guides is the list of help guides.
 	Guides []*Guide
 
-	// Subjects is the list of subjects (and therefore, of commands).
-	Subject []*Subject
+	// List of commands in the the order in which they are printed by
+	// help command.
+	Commands []*Command
 }
 
 // Run runs the application.
@@ -68,8 +71,21 @@ func (a *App) Run() {
 	a.RunArgs(args)
 }
 
-// RunArgs should be used if the application has its own set of flags that
-// must be checked before running any command.
+/*
+RunArgs should be used if the application has its own set of flags that
+must be checked before running any command.
+
+The the main function should be:
+
+	func main() {
+		// Parse app owned flags
+		args := flag.Parse()
+		...	// use the flags, initialize, etc.
+
+		// a is a cmdapp.App
+		a.RunArgs(args)
+	}
+*/
 func (a *App) RunArgs(args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "%s\n", a.usage())
@@ -77,27 +93,24 @@ func (a *App) RunArgs(args []string) {
 	}
 
 	// Setup's host name
-	helpCmd.Host = a.Name
-	for _, s := range a.Subject {
-		for _, c := range s.Commands {
-			c.Host = a.Name
-		}
+	helpCmd.host = a.Name
+	for _, c := range a.Commands {
+		c.host = a.Name
 	}
 
 	if args[0] == "help" {
+		helpCmd.Flag.Usage = func() { helpCmd.Usage() }
 		helpCmd.Flag.Parse(args[1:])
 		help(a, helpCmd.Flag.Args())
 		return
 	}
 
-	for _, s := range a.Subject {
-		for _, c := range s.Commands {
-			if c.Name == args[0] {
-				c.Flag.Usage = func() { c.Usage() }
-				c.Flag.Parse(args[1:])
-				c.Run(c, c.Flag.Args())
-				return
-			}
+	for _, c := range a.Commands {
+		if c.Name == args[0] {
+			c.Flag.Usage = func() { c.Usage() }
+			c.Flag.Parse(args[1:])
+			c.Run(c, c.Flag.Args())
+			return
 		}
 	}
 
@@ -107,30 +120,55 @@ func (a *App) RunArgs(args []string) {
 
 // returns applications help
 func (a *App) help() string {
-	hlp := fmt.Sprintf("%s - %s\n", a.Name, a.Short)
-	hlp += fmt.Sprintf("\nSYNOPSIS\n\n    %s %s\n", a.Name, a.Synopsis)
+	hlp := fmt.Sprintf("%s - %s\n", capitalize(a.Name), a.Short)
+	hlp += fmt.Sprintf("\nSynopsis\n\n    %s %s\n", a.Name, a.Synopsis)
 	hlp += fmt.Sprintf("\n%s\n", strings.TrimSpace(a.Long))
 	return hlp
+}
+
+func capitalize(s string) string {
+	if s == "" {
+		return s
+	}
+	r, n := utf8.DecodeRuneInString(s)
+	return string(unicode.ToTitle(r)) + s[n:]
 }
 
 // returns application usage
 func (a *App) usage() string {
 	usg := fmt.Sprintf("%s - %s\n", a.Name, a.Short)
 	usg += fmt.Sprintf("Usage: %s %s\n", a.Name, a.Synopsis)
-	for _, s := range a.Subject {
-		usg += fmt.Sprintf("\n%s\n\n", s.Name)
-		for _, c := range s.Commands {
+	if len(a.Commands) > 0 {
+		usg += fmt.Sprintf("\nMost commonly used %s commands are:\n\n", a.Name)
+		for _, c := range a.Commands {
+			if !c.IsCommon {
+				continue
+			}
 			usg += fmt.Sprintf("    %-11s %s\n", c.Name, c.Short)
 		}
+		usg += fmt.Sprintf("\nType '%s help --all' for a list of available commands\n", a.Name)
+		usg += fmt.Sprintf("\nType '%s help <command>' for more information about a command.\n", a.Name)
 	}
-	usg += fmt.Sprintf("\nType '%s help <command>' for more information about a command.\n", a.Name)
-	usg += fmt.Sprintf("Type '%s help %s' for more information about %s.\n", a.Name, a.Name, a.Name)
-	usg += fmt.Sprintf("Type '%s help --guides' for a list of useful guides\n", a.Name)
+	if len(a.Guides) > 0 {
+		usg += fmt.Sprintf("\nType '%s help --guides' for a list of useful guides\n", a.Name)
+	}
+	usg += fmt.Sprintf("\nType '%s help %s' for more information about %s.\n", a.Name, a.Name, a.Name)
 	return usg
 }
 
 // runs the help command
 func help(a *App, args []string) {
+	if allList {
+		if len(a.Commands) == 0 {
+			fmt.Fprintf(os.Stderr, "%s has no commands\n", a.Name)
+			os.Exit(1)
+		}
+		for _, c := range a.Commands {
+			fmt.Fprintf(os.Stdout, "    %-11s %s\n", c.Name, c.Short)
+		}
+		fmt.Fprintf(os.Stdout, "\nType '%s help <command>' for more information about a command.\n", a.Name)
+		return
+	}
 	if guideList {
 		if len(a.Guides) == 0 {
 			fmt.Fprintf(os.Stderr, "%s has no guides\n", a.Name)
@@ -179,12 +217,10 @@ func help(a *App, args []string) {
 		fmt.Fprintf(f, "%s", goFoot)
 		return
 	}
-	for _, s := range a.Subject {
-		for _, c := range s.Commands {
-			if c.Name == arg {
-				fmt.Fprintf(os.Stdout, "%s", c.help())
-				return
-			}
+	for _, c := range a.Commands {
+		if c.Name == arg {
+			fmt.Fprintf(os.Stdout, "%s", c.help())
+			return
 		}
 	}
 	for _, g := range a.Guides {
@@ -199,10 +235,8 @@ func help(a *App, args []string) {
 
 func documentationHelp(w io.Writer, a *App) {
 	fmt.Fprintf(w, "%s", a.help())
-	for _, s := range a.Subject {
-		for _, c := range s.Commands {
-			fmt.Fprintf(w, "\n%s", c.help())
-		}
+	for _, c := range a.Commands {
+		fmt.Fprintf(w, "\n%s", c.help())
 	}
 	for _, g := range a.Guides {
 		fmt.Fprintf(w, "\n%s", g.help())

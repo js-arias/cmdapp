@@ -24,9 +24,6 @@ type Command struct {
 	// Name is the command's name.
 	Name string
 
-	// Host is the name of the application that hosts the command.
-	Host string
-
 	// Synopsis is the command usage line.
 	Synopsis string
 
@@ -38,25 +35,31 @@ type Command struct {
 
 	// Set of flags specific to the command.
 	Flag flag.FlagSet
+
+	// IsCommon must be set as true, if the command is a common command.
+	IsCommon bool
+
+	// Host is the name of the application that hosts the command.
+	host string
 }
 
 // ErrStr returns an error description from the command
 func (c *Command) ErrStr(err interface{}) string {
-	return fmt.Sprintf("%s %s: error: %v", c.Host, c.Name, err)
+	return fmt.Sprintf("%s %s: error: %v", c.host, c.Name, err)
 }
 
 // prints command usage
 func (c *Command) Usage() {
-	fmt.Fprintf(os.Stderr, "%s-%s - %s\n", c.Host, c.Name, c.Short)
-	fmt.Fprintf(os.Stderr, "Usage: %s %s %s\n", c.Host, c.Name, c.Synopsis)
-	fmt.Fprintf(os.Stderr, "Type '%s help %s' for more information\n", c.Host, c.Name)
+	fmt.Fprintf(os.Stderr, "%s-%s - %s\n", capitalize(c.host), c.Name, c.Short)
+	fmt.Fprintf(os.Stderr, "Usage: %s %s %s\n", c.host, c.Name, c.Synopsis)
+	fmt.Fprintf(os.Stderr, "Type '%s help %s' for more information\n", c.host, c.Name)
 	os.Exit(2)
 }
 
 // returns command help
 func (c *Command) help() string {
-	hlp := fmt.Sprintf("%s-%s - %s\n", c.Host, c.Name, c.Short)
-	hlp += fmt.Sprintf("\nSYNOPSIS\n\n    %s %s %s\n", c.Host, c.Name, c.Synopsis)
+	hlp := fmt.Sprintf("%s-%s - %s\n", capitalize(c.host), c.Name, c.Short)
+	hlp += fmt.Sprintf("\nSynopsis\n\n    %s %s %s\n", c.host, c.Name, c.Synopsis)
 	hlp += fmt.Sprintf("\n%s\n", strings.TrimSpace(c.Long))
 	return hlp
 }
@@ -67,7 +70,7 @@ var helpCmd = Command{
 	Synopsis: "[-g|--guide] [<command>|<guide>]",
 	Short:    "Display help information",
 	Long: `
-DESCRIPTION
+Description
 
 With no option and no COMMAND or GUIDE given, the list of commands are printed
 to the standard output.
@@ -78,8 +81,13 @@ standard output.
 If a command, or a guide, is given, the information for that command or guide
 is printed in the standard output.
 
-OPTIONS
+Options
 
+    -a
+    --all
+      Prints a list of all available commands on the standard output. This
+      option overrides any given command or guide name.
+      
     -g
     --guides
       Prints a list of useful guides on the standard output. This option
@@ -88,8 +96,11 @@ OPTIONS
 }
 
 var guideList = false
+var allList = false
 
 func init() {
 	helpCmd.Flag.BoolVar(&guideList, "guides", false, "")
 	helpCmd.Flag.BoolVar(&guideList, "g", false, "")
+	helpCmd.Flag.BoolVar(&allList, "all", false, "")
+	helpCmd.Flag.BoolVar(&allList, "a", false, "")
 }
