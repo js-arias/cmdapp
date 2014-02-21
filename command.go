@@ -50,8 +50,8 @@ func (c *Command) ErrStr(err interface{}) string {
 
 // prints command usage
 func (c *Command) Usage() {
-	fmt.Fprintf(os.Stderr, "%s-%s - %s\n", capitalize(c.host), c.Name, c.Short)
-	fmt.Fprintf(os.Stderr, "Usage: %s %s %s\n", c.host, c.Name, c.Synopsis)
+	fmt.Fprintf(os.Stderr, "%s.\n\n", c.Short)
+	fmt.Fprintf(os.Stderr, "usage: %s %s %s\n\n", c.host, c.Name, c.Synopsis)
 	fmt.Fprintf(os.Stderr, "Type '%s help %s' for more information\n", c.host, c.Name)
 	os.Exit(2)
 }

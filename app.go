@@ -120,7 +120,7 @@ func (a *App) RunArgs(args []string) {
 
 // returns applications help
 func (a *App) help() string {
-	hlp := fmt.Sprintf("%s - %s\n", capitalize(a.Name), a.Short)
+	hlp := fmt.Sprintf("%s.\n", a.Short)
 	hlp += fmt.Sprintf("\nSynopsis\n\n    %s %s\n", a.Name, a.Synopsis)
 	hlp += fmt.Sprintf("\n%s\n", strings.TrimSpace(a.Long))
 	return hlp
@@ -136,8 +136,8 @@ func capitalize(s string) string {
 
 // returns application usage
 func (a *App) usage() string {
-	usg := fmt.Sprintf("%s - %s\n", a.Name, a.Short)
-	usg += fmt.Sprintf("Usage: %s %s\n", a.Name, a.Synopsis)
+	usg := fmt.Sprintf("%s.\n\n", a.Short)
+	usg += fmt.Sprintf("usage: %s %s\n", a.Name, a.Synopsis)
 	if len(a.Commands) > 0 {
 		usg += fmt.Sprintf("\nMost commonly used %s commands are:\n\n", a.Name)
 		for _, c := range a.Commands {
