@@ -58,7 +58,7 @@ func (c *Command) Usage() {
 
 // returns command help
 func (c *Command) help() string {
-	hlp := fmt.Sprintf("%s-%s - %s\n", capitalize(c.host), c.Name, c.Short)
+	hlp := fmt.Sprintf("%s\n", capitalize(c.Short))
 	hlp += fmt.Sprintf("\nSynopsis\n\n    %s %s %s\n", c.host, c.Name, c.Synopsis)
 	hlp += fmt.Sprintf("\n%s\n", strings.TrimSpace(c.Long))
 	return hlp
