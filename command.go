@@ -10,6 +10,7 @@ package cmdapp
 import (
 	"flag"
 	"fmt"
+	"go/doc"
 	"os"
 	"strings"
 )
@@ -62,6 +63,17 @@ func (c *Command) help() string {
 	hlp += fmt.Sprintf("\nSynopsis\n\n    %s %s %s\n", c.host, c.Name, c.Synopsis)
 	hlp += fmt.Sprintf("\n%s\n", strings.TrimSpace(c.Long))
 	return hlp
+}
+
+// writes help on an html file
+func (c *Command) html() {
+	f, err := os.Create(c.Name + ".html")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", c.ErrStr(err))
+		os.Exit(1)
+	}
+	defer f.Close()
+	doc.ToHTML(f, c.help(), nil)
 }
 
 // help command, a dummy non-runnable command
