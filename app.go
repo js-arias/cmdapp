@@ -154,7 +154,7 @@ func (a *App) usage() string {
 		usg += fmt.Sprintf("\nType '%s help --all' for a list of available commands. \n", a.Name)
 		if len(a.Commands) > lr {
 			usg += fmt.Sprintf("Type '%s help --guides' for a list of useful guides. \n", a.Name)
-			usg += fmt.Sprintf("Type '%s help <command>' or '%help <guide>' for more information about a \ncommand or guide.\n", a.Name, a.Name)
+			usg += fmt.Sprintf("Type '%s help <command>' or '%s help <guide>' for more information \nabout a command or guide.\n", a.Name, a.Name)
 		} else {
 			usg += fmt.Sprintf("Type '%s help <command>' for more information about a command.\n", a.Name)
 		}
@@ -177,7 +177,7 @@ func (a *App) usage() string {
 		}
 		if len(a.Commands) > lr {
 			usg += fmt.Sprintf("\nType '%s help --guides' for a list of useful guides. \n", a.Name)
-			usg += fmt.Sprintf("Type '%s help <command>' or '%help <guide>' for more information about a \ncommand or guide.\n", a.Name, a.Name)
+			usg += fmt.Sprintf("Type '%s help <command>' or '%s help <guide>' for more information \nabout a command or guide.\n", a.Name, a.Name)
 		} else {
 			usg += fmt.Sprintf("\nType '%s help <command>' for more information about a command.\n", a.Name)
 		}
