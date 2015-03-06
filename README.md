@@ -13,9 +13,8 @@ Quick usage
 
     go get github.com/js-arias/cmdapp
 
-In the program initialization the commands, the lists of commands
-(subjects) and guides, as well as the commands (and their flags) should
-be setup.
+In the program initialization the commands (and their flags), as well as
+the lists of commands should setup.
 
 If nothing else is required (there are no special cases to check before
 the formal run of the application), the main funcion can be reduced to:

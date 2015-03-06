@@ -1,4 +1,4 @@
-// Copyright (c) 2013, J. Salvador Arias <jsalarias@csnat.unt.edu.ar>
+// Copyright (c) 2015, J. Salvador Arias <jsalarias@gmail.com>
 // All rights reserved.
 // Distributed under BSD-style license that can be found in the LICENSE file.
 //
@@ -10,23 +10,21 @@ package cmdapp
 import (
 	"flag"
 	"fmt"
-	"go/doc"
+	"io"
 	"os"
 	"strings"
 )
 
-// A command is a hosted subcommand.
+// A Command is an implementation of a hosted command.
 type Command struct {
 	// Run runs the command.
 	// The argument list is the set of unparsed arguments, that is the
 	// arguments unparsed by the flag package.
 	Run func(c *Command, args []string)
 
-	// Name is the command's name.
-	Name string
-
-	// Synopsis is the command usage line.
-	Synopsis string
+	// UsageLine is the ussage message.
+	// The first word in the line is taken to be the command name.
+	UsageLine string
 
 	// Short is a short, single line description of the command.
 	Short string
@@ -37,82 +35,38 @@ type Command struct {
 	// Set of flags specific to the command.
 	Flag flag.FlagSet
 
-	// IsCommon must be set as true, if the command is a common command.
-	IsCommon bool
-
 	// Host is the name of the application that hosts the command.
 	host string
 }
 
-// ErrStr returns an error description from the command
-func (c *Command) ErrStr(err interface{}) string {
-	return fmt.Sprintf("%s %s: error: %v", c.host, c.Name, err)
+// Name returns the commands's name: the first word in the usage line.
+func (c *Command) Name() string {
+	name := c.UsageLine
+	i := strings.Index(name, " ")
+	if i >= 0 {
+		name = name[:i]
+	}
+	return name
 }
 
-// prints command usage
+// Usage prints the usage help of the command.
 func (c *Command) Usage() {
-	fmt.Fprintf(os.Stderr, "%s.\n\n", c.Short)
-	fmt.Fprintf(os.Stderr, "usage: %s %s %s\n\n", c.host, c.Name, c.Synopsis)
-	fmt.Fprintf(os.Stderr, "Type '%s help %s' for more information\n", c.host, c.Name)
+	fmt.Fprintf(os.Stderr, "usage: %s %s\n\n", c.host, c.UsageLine)
+	fmt.Fprintf(os.Stderr, "Type '%s help %s for more information.\n", c.host, c.Name())
 	os.Exit(2)
 }
 
-// returns command help
-func (c *Command) help() string {
-	hlp := fmt.Sprintf("%s\n", capitalize(c.Short))
-	hlp += fmt.Sprintf("\nSynopsis\n\n    %s %s %s\n", c.host, c.Name, c.Synopsis)
-	hlp += fmt.Sprintf("\n%s\n", strings.TrimSpace(c.Long))
-	return hlp
-}
-
-// writes help on an html file
-func (c *Command) html() {
-	f, err := os.Create(c.Name + ".html")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", c.ErrStr(err))
-		os.Exit(1)
+func (c *Command) documentation(w io.Writer) {
+	fmt.Fprintf(w, "%s\n\n", capitalize(c.Short))
+	if c.Run != nil {
+		fmt.Fprintf(w, "Usage:\n\n    %s %s\n\n", c.host, c.UsageLine)
 	}
-	defer f.Close()
-	doc.ToHTML(f, c.help(), nil)
+	fmt.Fprintf(w, "%s\n\n", strings.TrimSpace(c.Long))
 }
 
-// help command, a dummy non-runnable command
-var helpCmd = Command{
-	Name:     "help",
-	Synopsis: "[-g|--guide] [<command>|<guide>]",
-	Short:    "Display help information",
-	Long: `
-Description
-
-With no option and no COMMAND or GUIDE given, the list of commands are printed
-to the standard output.
-
-If the option --guide is given, a list of useful guides is also printed on the
-standard output.
-
-If a command, or a guide, is given, the information for that command or guide
-is printed in the standard output.
-
-Options
-
-    -a
-    --all
-      Prints a list of all available commands on the standard output. This
-      option overrides any given command or guide name.
-      
-    -g
-    --guides
-      Prints a list of useful guides on the standard output. This option
-      overrides any given command or guide name.
-	`,
-}
-
-var guideList = false
-var allList = false
-
-func init() {
-	helpCmd.Flag.BoolVar(&guideList, "guides", false, "")
-	helpCmd.Flag.BoolVar(&guideList, "g", false, "")
-	helpCmd.Flag.BoolVar(&allList, "all", false, "")
-	helpCmd.Flag.BoolVar(&allList, "a", false, "")
+func (c *Command) help(w io.Writer) {
+	if c.Run != nil {
+		fmt.Fprintf(w, "usage: %s %s\n\n", c.host, c.UsageLine)
+	}
+	fmt.Fprintf(w, "%s\n", strings.TrimSpace(c.Long))
 }

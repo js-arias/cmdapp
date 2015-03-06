@@ -1,36 +1,31 @@
-// Copyright (c) 2013, J. Salvador Arias <jsalarias@csnat.unt.edu.ar>
+// Copyright (c) 2015, J. Salvador Arias <jsalarias@gmail.com>
 // All rights reserved.
 // Distributed under BSD-style license that can be found in the LICENSE file.
 //
 // This work is derived from the go tool source code
 // Copyright 2011 The Go Authors.  All rights reserved.
 
-/*
-Package cmdapp implements a command line application that host a set of
-commands as in the go tool or git.
-
-In the program initialization the commands, the lists of commands and guides,
-as well as the commands (and their flags) should be setup.
-
-If nothing else is required (there are no special cases to check before the
-formal run of the application), the main funcion can be reduced to:
-
-	a = cmdapp.App{
-		// initialization
-	}
-
-	func main() {
-		a.Run()
-	}
-
-And the specified command will be run.
-*/
+// Package cmdapp implements a command line application that host a set of
+// commands as in the go tool or git.
+//
+// In the program initialization the commands (as well as their flags), and
+// the list of commands should be set up.
+//
+// If the main program do not have its own set of flags, just call the App
+// Run's method to execute the commands, otherwise use RunArgs:
+//
+//	a = cmdapp.App{
+//		// initialization
+//	}
+//
+//	func main() {
+//		a.Run()
+//	}
 package cmdapp
 
 import (
 	"flag"
 	"fmt"
-	"go/doc"
 	"io"
 	"os"
 	"strings"
@@ -38,79 +33,67 @@ import (
 	"unicode/utf8"
 )
 
-//App is a command line application.
+// App is a command line application.
 type App struct {
-	// Name is the application's name.
-	Name string
+	// UsageLine is the usage message.
+	// The first word in the line is taken to be the application name.
+	UsageLine string
 
-	// Synopsis is the application usage line.
-	Synopsis string
-
-	// Short is a short, single line description of the application.
+	// Short is a short description of the application.
 	Short string
 
-	// Long is a long description of the application.
-	Long string
-
-	// List of commands in the the order in which they are printed by
-	// help command.
+	// Commands lists the available commands and help topics. The order
+	// in this list is the order in which they are printed by 'help'.
 	Commands []*Command
+}
+
+// Name returns the application's name: the first word in the usage line.
+func (a *App) Name() string {
+	name := a.UsageLine
+	i := strings.Index(name, " ")
+	if i >= 0 {
+		name = name[:i]
+	}
+	return name
 }
 
 // Run runs the application.
 func (a *App) Run() {
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "%s\n", a.usage())
-		os.Exit(2)
-	}
+	flag.Usage = a.usage
 	flag.Parse()
 
 	args := flag.Args()
-	a.RunArgs(args)
+	a.RunWithArgs(args)
 }
 
-/*
-RunArgs should be used if the application has its own set of flags that
-must be checked before running any command.
-
-The the main function should be:
-
-	func main() {
-		// Parse app owned flags
-		args := flag.Parse()
-		...	// use the flags, initialize, etc.
-
-		// a is a cmdapp.App
-		a.RunArgs(args)
-	}
-*/
-func (a *App) RunArgs(args []string) {
+// RunWithArgs should be used if the application has its own set of flags that
+// must be checked before running any command:
+//
+//	func main() {
+//		// parse app owned flags
+//		args := flag.Parse()
+//		...	// use the flags, initialize, etc.
+//
+//		// a is a cmdapp.App, args include all non parsed flags
+//		a.RunArgs(args)
+//	}
+func (a *App) RunWithArgs(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "%s\n", a.usage())
-		os.Exit(2)
+		a.usage()
 	}
 
 	// Setup's host name
-	helpCmd.host = a.Name
 	for _, c := range a.Commands {
-		c.host = a.Name
-		if c.Run == nil {
-			c.IsCommon = false
-		}
+		c.host = a.Name()
 	}
 
 	if args[0] == "help" {
-		helpCmd.Flag.Usage = func() { helpCmd.Usage() }
-		helpCmd.Flag.Parse(args[1:])
-		help(a, helpCmd.Flag.Args())
+		a.help(args[1:])
 		return
 	}
 
 	for _, c := range a.Commands {
-		if c.Run == nil {
-			continue
-		}
-		if c.Name == args[0] {
+		if (c.Name() == args[0]) && (c.Run != nil) {
 			c.Flag.Usage = func() { c.Usage() }
 			c.Flag.Parse(args[1:])
 			c.Run(c, c.Flag.Args())
@@ -118,16 +101,83 @@ func (a *App) RunArgs(args []string) {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "%s: error: unknown command %s\n", a.Name, args[0])
+	fmt.Fprintf(os.Stderr, "%s: Unknown subcommand %s.\nRun '%s help' for usage.\n", a.Name(), args[0], a.Name())
 	os.Exit(2)
 }
 
-// returns applications help
-func (a *App) help() string {
-	hlp := fmt.Sprintf("%s.\n", a.Short)
-	hlp += fmt.Sprintf("\nSynopsis\n\n    %s %s\n", a.Name, a.Synopsis)
-	hlp += fmt.Sprintf("\n%s\n", strings.TrimSpace(a.Long))
-	return hlp
+func (a *App) usage() {
+	a.printUsage(os.Stderr)
+	os.Exit(2)
+}
+
+func (a *App) printUsage(w io.Writer) {
+	fmt.Fprintf(w, "%s\n\n", a.Short)
+	fmt.Fprintf(w, "Usage:\n\n    %s\n\n", a.UsageLine)
+	if len(a.Commands) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "The commands are:\n")
+	top := false
+	for _, c := range a.Commands {
+		if c.Run == nil {
+			top = true
+			continue
+		}
+		fmt.Fprintf(w, "    %-16s %s\n", c.Name(), c.Short)
+	}
+	fmt.Fprintf(w, "\nUse '%s help [command]' for more information about a command.\n\n")
+	if !top {
+		return
+	}
+	fmt.Fprintf(w, "Additional help topics:\n")
+	for _, c := range a.Commands {
+		if c.Run != nil {
+			continue
+		}
+		fmt.Fprintf(w, "    %-16s %s\n", c.Name(), c.Short)
+	}
+	fmt.Fprintf(w, "\nUse '%s help [topic]' for more information about that topic.\n\n")
+}
+
+// help implements the 'help' command.
+func (a *App) help(args []string) {
+	if len(args) == 0 {
+		a.printUsage(os.Stdout)
+		return
+	}
+	if len(args) != 1 {
+		fmt.Fprintf(os.Stderr, "help: Too many arguments.\n\nusage: %s help <command>\n", a.Name())
+		os.Exit(2)
+	}
+
+	arg := args[0]
+
+	// 'help documentation' generates doc.go.
+	if arg == "documentation" {
+		f, err := os.Create("doc.go")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "help: %v\n", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		fmt.Fprintf(f, "%s", goHead)
+		a.printUsage(f)
+		for _, c := range a.Commands {
+			c.documentation(f)
+		}
+		fmt.Fprintf(f, "%s", goFoot)
+		return
+	}
+
+	for _, c := range a.Commands {
+		if c.Name() == arg {
+			c.help(os.Stdout)
+			return
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "help: Unknown help topic %s.\nRun '%s help'.\n", arg, a.Name())
+	os.Exit(2)
 }
 
 func capitalize(s string) string {
@@ -136,169 +186,6 @@ func capitalize(s string) string {
 	}
 	r, n := utf8.DecodeRuneInString(s)
 	return string(unicode.ToTitle(r)) + s[n:]
-}
-
-// returns application usage
-func (a *App) usage() string {
-	usg := fmt.Sprintf("%s.\n\n", a.Short)
-	usg += fmt.Sprintf("usage: %s %s\n", a.Name, a.Synopsis)
-	lr, cm := a.lenRun()
-	if (lr > 15) && (cm > 0) {
-		usg += fmt.Sprintf("\nThe most commonly used %s commands are:\n\n", a.Name)
-		for _, c := range a.Commands {
-			if !c.IsCommon {
-				continue
-			}
-			usg += fmt.Sprintf("    %-16s %s\n", c.Name, c.Short)
-		}
-		usg += fmt.Sprintf("\nType '%s help --all' for a list of available commands. \n", a.Name)
-		if len(a.Commands) > lr {
-			usg += fmt.Sprintf("Type '%s help --guides' for a list of useful guides. \n", a.Name)
-			usg += fmt.Sprintf("Type '%s help <command>' or '%s help <guide>' for more information \nabout a command or guide.\n", a.Name, a.Name)
-		} else {
-			usg += fmt.Sprintf("Type '%s help <command>' for more information about a command.\n", a.Name)
-		}
-	} else if lr > 0 {
-		usg += fmt.Sprintf("\nThe commands are:\n\n")
-		for _, c := range a.Commands {
-			if c.Run == nil {
-				continue
-			}
-			usg += fmt.Sprintf("    %-16s %s\n", c.Name, c.Short)
-		}
-		if (len(a.Commands) > lr) && (lr <= 15) {
-			usg += fmt.Sprintf("\nThe common %s guides are:\n\n", a.Name)
-			for _, c := range a.Commands {
-				if c.Run != nil {
-					continue
-				}
-				usg += fmt.Sprintf("    %-16s %s\n", c.Name, c.Short)
-			}
-		}
-		if len(a.Commands) > lr {
-			usg += fmt.Sprintf("\nType '%s help --guides' for a list of useful guides. \n", a.Name)
-			usg += fmt.Sprintf("Type '%s help <command>' or '%s help <guide>' for more information \nabout a command or guide.\n", a.Name, a.Name)
-		} else {
-			usg += fmt.Sprintf("\nType '%s help <command>' for more information about a command.\n", a.Name)
-		}
-	} else if len(a.Commands) > 0 {
-		usg += fmt.Sprintf("\nThe common %s guides are:\n\n", a.Name)
-		for _, c := range a.Commands {
-			usg += fmt.Sprintf("    %-16s %s\n", c.Name, c.Short)
-		}
-		usg += fmt.Sprintf("\nType '%s help <guide>' for more information about a guide.\n", a.Name)
-	}
-	return usg
-}
-
-// lenCmd returns the number of runnable and common commands
-func (a *App) lenRun() (int, int) {
-	lr, cm := 0, 0
-	for _, c := range a.Commands {
-		if c.Run != nil {
-			lr++
-		}
-		if c.IsCommon {
-			cm++
-		}
-	}
-	return lr, cm
-}
-
-// runs the help command
-func help(a *App, args []string) {
-	if allList {
-		if lr, _ := a.lenRun(); lr == 0 {
-			fmt.Fprintf(os.Stderr, "%s has no commands\n", a.Name)
-			os.Exit(1)
-		}
-		for _, c := range a.Commands {
-			if c.Run == nil {
-				continue
-			}
-			fmt.Fprintf(os.Stdout, "    %-16s %s\n", c.Name, c.Short)
-		}
-		fmt.Fprintf(os.Stdout, "\nType '%s help <command>' for more information about a command.\n", a.Name)
-		return
-	}
-	if guideList {
-		if lr, _ := a.lenRun(); len(a.Commands) == lr {
-			fmt.Fprintf(os.Stderr, "%s has no guides\n", a.Name)
-			os.Exit(1)
-		}
-		fmt.Fprintf(os.Stdout, "%s guides are:\n\n", a.Name)
-		for _, c := range a.Commands {
-			if c.Run != nil {
-				continue
-			}
-			fmt.Fprintf(os.Stdout, "    %-16s %s\n", c.Name, c.Short)
-		}
-		fmt.Fprintf(os.Stdout, "\nType '%s help <guide>' for more information about a guide.\n", a.Name)
-		return
-	}
-
-	if len(args) == 0 {
-		fmt.Fprintf(os.Stdout, "%s", a.usage())
-		return
-	}
-	if len(args) > 1 {
-		fmt.Fprintf(os.Stderr, "%s\n", helpCmd.ErrStr("too many arguments"))
-		os.Exit(2)
-	}
-
-	arg := args[0]
-	if arg == a.Name {
-		fmt.Fprintf(os.Stdout, "%s", a.help())
-		return
-	}
-	if arg == "help" {
-		fmt.Fprintf(os.Stdout, "%s", helpCmd.help())
-		return
-	}
-	if arg == "documentation" {
-		documentationHelp(os.Stdout, a)
-		return
-	}
-	if arg == "doc.go" {
-		f, err := os.Create("doc.go")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", helpCmd.ErrStr(err))
-			os.Exit(2)
-		}
-		defer f.Close()
-		fmt.Fprintf(f, "%s", goHead)
-		documentationHelp(f, a)
-		fmt.Fprintf(f, "%s", goFoot)
-		return
-	}
-	if arg == "html" {
-		f, err := os.Create(a.Name + ".html")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", helpCmd.ErrStr(err))
-			os.Exit(2)
-		}
-		doc.ToHTML(f, a.help(), nil)
-		f.Close()
-		for _, c := range a.Commands {
-			c.html()
-		}
-		return
-	}
-	for _, c := range a.Commands {
-		if c.Name == arg {
-			fmt.Fprintf(os.Stdout, "%s", c.help())
-			return
-		}
-	}
-	fmt.Fprintf(os.Stderr, "%s\n", helpCmd.ErrStr("unknown argument"))
-	os.Exit(2)
-}
-
-func documentationHelp(w io.Writer, a *App) {
-	fmt.Fprintf(w, "%s", a.help())
-	for _, c := range a.Commands {
-		fmt.Fprintf(w, "\n%s", c.help())
-	}
 }
 
 var goHead = `// Authomatically generated doc.go file for use with godoc.
