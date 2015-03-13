@@ -125,7 +125,7 @@ func (a *App) printUsage(w io.Writer) {
 		}
 		fmt.Fprintf(w, "    %-16s %s\n", c.Name(), c.Short)
 	}
-	fmt.Fprintf(w, "\nUse '%s help [command]' for more information about a command.\n\n")
+	fmt.Fprintf(w, "\nUse '%s help [command]' for more information about a command.\n\n", a.Name())
 	if !top {
 		return
 	}
@@ -136,7 +136,7 @@ func (a *App) printUsage(w io.Writer) {
 		}
 		fmt.Fprintf(w, "    %-16s %s\n", c.Name(), c.Short)
 	}
-	fmt.Fprintf(w, "\nUse '%s help [topic]' for more information about that topic.\n\n")
+	fmt.Fprintf(w, "\nUse '%s help [topic]' for more information about that topic.\n\n", a.Name())
 }
 
 // help implements the 'help' command.
