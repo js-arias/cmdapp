@@ -28,16 +28,16 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"unicode"
 	"unicode/utf8"
 )
 
 // App is a command line application.
 type App struct {
-	// UsageLine is the usage message.
-	// The first word in the line is taken to be the application name.
-	UsageLine string
+	// OptionsLine indicates the options of the application. It does not
+	// include the application name (which is inferred from the command
+	// line).
+	OptionsLine string
 
 	// Short is a short description of the application.
 	Short string
@@ -47,14 +47,9 @@ type App struct {
 	Commands []*Command
 }
 
-// Name returns the application's name: the first word in the usage line.
+// Name returns the application's name, from the argument list.
 func (a *App) Name() string {
-	name := a.UsageLine
-	i := strings.Index(name, " ")
-	if i >= 0 {
-		name = name[:i]
-	}
-	return name
+	return os.Args[0]
 }
 
 // Run runs the application.
@@ -82,11 +77,6 @@ func (a *App) RunWithArgs(args []string) {
 		a.usage()
 	}
 
-	// Setup's host name
-	for _, c := range a.Commands {
-		c.host = a.Name()
-	}
-
 	if args[0] == "help" {
 		a.help(args[1:])
 		return
@@ -112,7 +102,7 @@ func (a *App) usage() {
 
 func (a *App) printUsage(w io.Writer) {
 	fmt.Fprintf(w, "%s\n\n", a.Short)
-	fmt.Fprintf(w, "Usage:\n\n    %s\n\n", a.UsageLine)
+	fmt.Fprintf(w, "Usage:\n\n    %s %s\n\n", a.Name(), a.OptionsLine)
 	if len(a.Commands) == 0 {
 		return
 	}

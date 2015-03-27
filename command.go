@@ -34,9 +34,6 @@ type Command struct {
 
 	// Set of flags specific to the command.
 	Flag flag.FlagSet
-
-	// Host is the name of the application that hosts the command.
-	host string
 }
 
 // Name returns the commands's name: the first word in the usage line.
@@ -51,22 +48,22 @@ func (c *Command) Name() string {
 
 // Usage prints the usage help of the command.
 func (c *Command) Usage() {
-	fmt.Fprintf(os.Stderr, "usage: %s %s\n\n", c.host, c.UsageLine)
-	fmt.Fprintf(os.Stderr, "Type '%s help %s for more information.\n", c.host, c.Name())
+	fmt.Fprintf(os.Stderr, "usage: %s %s\n\n", os.Args[0], c.UsageLine)
+	fmt.Fprintf(os.Stderr, "Type '%s help %s for more information.\n", os.Args[0], c.Name())
 	os.Exit(2)
 }
 
 func (c *Command) documentation(w io.Writer) {
 	fmt.Fprintf(w, "%s\n\n", capitalize(c.Short))
 	if c.Run != nil {
-		fmt.Fprintf(w, "Usage:\n\n    %s %s\n\n", c.host, c.UsageLine)
+		fmt.Fprintf(w, "Usage:\n\n    %s %s\n\n", os.Args[0], c.UsageLine)
 	}
 	fmt.Fprintf(w, "%s\n\n", strings.TrimSpace(c.Long))
 }
 
 func (c *Command) help(w io.Writer) {
 	if c.Run != nil {
-		fmt.Fprintf(w, "usage: %s %s\n\n", c.host, c.UsageLine)
+		fmt.Fprintf(w, "usage: %s %s\n\n", os.Args[0], c.UsageLine)
 	}
 	fmt.Fprintf(w, "%s\n", strings.TrimSpace(c.Long))
 }
