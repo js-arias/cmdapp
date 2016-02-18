@@ -6,20 +6,18 @@
 // Copyright 2011 The Go Authors.  All rights reserved.
 
 // Package cmdapp implements a command line application that host a set of
-// commands as in the go tool or git.
+// commands as in the go tool and git.
 //
-// In the program initialization the commands (as well as their flags), and
+// During program initialization the commands (as well as their flags), and
 // the list of commands should be set up.
 //
-// If the main program do not have its own set of flags, just call the App
-// Run's method to execute the commands, otherwise use RunArgs:
+// In most simple case, the Run function will execute the required command:
+//	import "github.com/js-arias/cmdapp"
 //
-//	a = cmdapp.App{
-//		// initialization
-//	}
+//	// initialize commands...
 //
 //	func main() {
-//		a.Run()
+//		cmdapp.Run()
 //	}
 package cmdapp
 
@@ -28,161 +26,128 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"unicode"
-	"unicode/utf8"
+	"strings"
 )
 
-// App is a command line application.
-type App struct {
-	// OptionsLine indicates the options of the application. It does not
-	// include the application name (which is inferred from the command
-	// line).
-	OptionsLine string
+// Short is a short description of the application.
+var Short string
 
-	// Short is a short description of the application.
-	Short string
+// Commands is the list of available commands and help topics. The order in
+// the list is used for help output.
+var Commands []*Command
 
-	// Commands lists the available commands and help topics. The order
-	// in this list is the order in which they are printed by 'help'.
-	Commands []*Command
-}
-
-// Name returns the application's name, from the argument list.
-func (a *App) Name() string {
-	return os.Args[0]
-}
+// Name stores the application name, the default is based on the arguments of
+// the program.
+var Name = os.Args[0]
 
 // Run runs the application.
-func (a *App) Run() {
-	flag.Usage = a.usage
+func Run() {
+	flag.Usage = usage
 	flag.Parse()
 
 	args := flag.Args()
-	a.RunWithArgs(args)
-}
-
-// RunWithArgs should be used if the application has its own set of flags that
-// must be checked before running any command:
-//
-//	func main() {
-//		// parse app owned flags
-//		args := flag.Parse()
-//		...	// use the flags, initialize, etc.
-//
-//		// a is a cmdapp.App, args include all non parsed flags
-//		a.RunArgs(args)
-//	}
-func (a *App) RunWithArgs(args []string) {
 	if len(args) < 1 {
-		a.usage()
+		usage()
 	}
-
 	if args[0] == "help" {
-		a.help(args[1:])
+		help(args[1:])
 		return
 	}
 
-	for _, c := range a.Commands {
+	for _, c := range Commands {
 		if (c.Name() == args[0]) && (c.Run != nil) {
 			c.Flag.Usage = func() { c.Usage() }
 			c.Flag.Parse(args[1:])
-			c.Run(c, c.Flag.Args())
+			err := c.Run(c, c.Flag.Args())
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: %s: %v\n", Name, c.Name(), err)
+				os.Exit(1)
+			}
 			return
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "%s: Unknown subcommand %s.\nRun '%s help' for usage.\n", a.Name(), args[0], a.Name())
-	os.Exit(2)
+	fmt.Fprintf(os.Stderr, "%s: unknown subcommand %s\nRun '%s help' for usage.\n", Name, args[0], Name)
+	os.Exit(1)
 }
 
-func (a *App) usage() {
-	a.printUsage(os.Stderr)
-	os.Exit(2)
+// usage printd application's help and exists.
+func usage() {
+	printUsage(os.Stderr)
+	os.Exit(1)
 }
 
-func (a *App) printUsage(w io.Writer) {
-	fmt.Fprintf(w, "%s\n\n", a.Short)
-	fmt.Fprintf(w, "Usage:\n\n    %s %s\n\n", a.Name(), a.OptionsLine)
-	if len(a.Commands) == 0 {
-		return
-	}
+// printUsage outputs the application usage help.
+func printUsage(w io.Writer) {
+	fmt.Fprintf(w, "%s\n\n", Short)
+	fmt.Fprintf(w, "Usage:\n\n    %s [help] <command> [<args>...]\n\n", Name)
+	topics := false
 	fmt.Fprintf(w, "The commands are:\n")
-	top := false
-	for _, c := range a.Commands {
+	for _, c := range Commands {
 		if c.Run == nil {
-			top = true
+			topics = true
 			continue
 		}
 		fmt.Fprintf(w, "    %-16s %s\n", c.Name(), c.Short)
 	}
-	fmt.Fprintf(w, "\nUse '%s help [command]' for more information about a command.\n\n", a.Name())
-	if !top {
+	fmt.Fprintf(w, "\nUse '%s help <command>' for more information about a command.\n\n", Name)
+	if !topics {
 		return
 	}
-	fmt.Fprintf(w, "Additional help topics:\n")
-	for _, c := range a.Commands {
+	fmt.Fprintf(w, "Additional help topics:\n\n")
+	for _, c := range Commands {
 		if c.Run != nil {
 			continue
 		}
 		fmt.Fprintf(w, "    %-16s %s\n", c.Name(), c.Short)
 	}
-	fmt.Fprintf(w, "\nUse '%s help [topic]' for more information about that topic.\n\n", a.Name())
+	fmt.Fprintf(w, "\nUse '%s help <topic>' for more information about that topic.\n\n", Name)
 }
 
 // help implements the 'help' command.
-func (a *App) help(args []string) {
+func help(args []string) {
 	if len(args) == 0 {
-		a.printUsage(os.Stdout)
+		printUsage(os.Stdout)
 		return
 	}
 	if len(args) != 1 {
-		fmt.Fprintf(os.Stderr, "help: Too many arguments.\n\nusage: %s help <command>\n", a.Name())
-		os.Exit(2)
+		fmt.Fprintf(os.Stderr, "%s: help: too many arguments.\nUsage: '%s help [<command>]'\n", Name, Name)
+		os.Exit(1)
 	}
 
 	arg := args[0]
 
-	// 'help documentation' generates doc.go.
+	// 'help documentation' generates doc.go
 	if arg == "documentation" {
 		f, err := os.Create("doc.go")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "help: %v\n", err)
+			fmt.Fprintf(os.Stderr, "%s: help: %v\n", Name, err)
 			os.Exit(1)
 		}
 		defer f.Close()
-		fmt.Fprintf(f, "%s", goHead)
-		a.printUsage(f)
-		for _, c := range a.Commands {
+		fmt.Fprintf(f, "%s\n", strings.TrimSpace(goHead))
+		printUsage(f)
+		for _, c := range Commands {
 			c.documentation(f)
 		}
-		fmt.Fprintf(f, "%s", goFoot)
+		fmt.Fprintf(f, "\n%s", strings.TrimSpace(goFoot))
 		return
 	}
 
-	for _, c := range a.Commands {
+	for _, c := range Commands {
 		if c.Name() == arg {
-			c.help(os.Stdout)
+			c.help()
 			return
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "help: Unknown help topic %s.\nRun '%s help'.\n", arg, a.Name())
-	os.Exit(2)
-}
-
-func capitalize(s string) string {
-	if s == "" {
-		return s
-	}
-	r, n := utf8.DecodeRuneInString(s)
-	return string(unicode.ToTitle(r)) + s[n:]
+	fmt.Fprintf(os.Stderr, "%s: help: unknown help topic %s.\nRun '% help'\n", Name, arg, Name)
+	os.Exit(1)
 }
 
 var goHead = `// Authomatically generated doc.go file for use with godoc.
 
-/*
-`
+/*`
 
-var goFoot = `
-*/
+var goFoot = `*/
 package main`

@@ -14,16 +14,18 @@ Quick usage
     go get github.com/js-arias/cmdapp
 
 In the program initialization the commands (and their flags), as well as
-the lists of commands should setup.
+the lists of commands should be set up.
 
 If nothing else is required (there are no special cases to check before
 the formal run of the application), the main funcion can be reduced to:
 
-	a = cmdapp.App{
-		// initialization
+	import "github.com/js-arias/cmdapp"
+	
+	// initialization ...
+	
 	}
 	func main() {
-		a.Run()
+		Run()
 	}
 
 And the specified command will be run.
