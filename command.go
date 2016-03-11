@@ -58,13 +58,17 @@ func (c *Command) Usage() {
 // documentation prints command documentation.
 func (c *Command) documentation(w io.Writer) {
 	fmt.Fprintf(w, "%s\n\n", capitalize(c.Short))
-	fmt.Fprintf(w, "Usage:\n\n    %s %s\n\n", Name, c.UsageLine)
+	if c.Run != nil {
+		fmt.Fprintf(w, "Usage:\n\n    %s %s\n\n", Name, c.UsageLine)
+	}
 	fmt.Fprintf(w, "%s\n\n", strings.TrimSpace(c.Long))
 }
 
 // help prints command help.
 func (c *Command) help() {
-	fmt.Printf("usage:\n\n    %s %s\n\n", Name, c.UsageLine)
+	if c.Run != nil {
+		fmt.Printf("usage:\n\n    %s %s\n\n", Name, c.UsageLine)
+	}
 	fmt.Printf("%s\n\n", strings.TrimSpace(c.Long))
 }
 
