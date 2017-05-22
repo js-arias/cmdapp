@@ -67,8 +67,8 @@ func (h help) Run(args []string) error {
 		}
 		sort.Strings(cmds)
 
-		for _, c := range commands {
-			documentation(f, c)
+		for _, c := range cmds {
+			documentation(f, commands[c])
 		}
 		fmt.Fprintf(f, "\n%s", strings.TrimSpace(goFoot))
 		return nil
